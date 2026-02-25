@@ -1,0 +1,162 @@
+// This is your Prisma schema file for MySQL
+// Run: npx prisma db push   (to sync schema to your DB)
+// Run: npx prisma generate  (to regenerate client)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  password      String?   // hashed with bcryptjs, null for OAuth users
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts   Account[]
+  sessions   Session[]
+  members    Member[]
+  workspaces Workspace[]
+}
+
+// NextAuth adapter tables
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  joinCode  String   @unique
+  userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  members       Member[]
+  channels      Channel[]
+  messages      Message[]
+  conversations Conversation[]
+  reactions     Reaction[]
+}
+
+model Member {
+  id          String     @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        MemberRole @default(member)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  messages          Message[]
+  reactions         Reaction[]
+  conversationsAsOne Conversation[] @relation("ConversationMemberOne")
+  conversationsAsTwo Conversation[] @relation("ConversationMemberTwo")
+
+  @@unique([userId, workspaceId])
+}
+
+enum MemberRole {
+  admin
+  member
+}
+
+model Channel {
+  id          String   @id @default(cuid())
+  name        String
+  workspaceId String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  messages  Message[]
+}
+
+model Conversation {
+  id          String   @id @default(cuid())
+  workspaceId String
+  memberOneId String
+  memberTwoId String
+  createdAt   DateTime @default(now())
+
+  workspace  Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  memberOne  Member    @relation("ConversationMemberOne", fields: [memberOneId], references: [id], onDelete: Cascade)
+  memberTwo  Member    @relation("ConversationMemberTwo", fields: [memberTwoId], references: [id], onDelete: Cascade)
+  messages   Message[]
+}
+
+model Message {
+  id              String   @id @default(cuid())
+  body            String   @db.Text
+  image           String?  // file URL stored in public folder or cloud
+  memberId        String
+  workspaceId     String
+  channelId       String?
+  parentMessageId String?
+  conversationId  String?
+  updatedAt       DateTime?
+  createdAt       DateTime @default(now())
+
+  member       Member        @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  channel      Channel?      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  parent       Message?      @relation("MessageThread", fields: [parentMessageId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  replies      Message[]     @relation("MessageThread")
+  reactions    Reaction[]
+}
+
+model Reaction {
+  id          String   @id @default(cuid())
+  value       String
+  workspaceId String
+  messageId   String
+  memberId    String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  message   Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  member    Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
