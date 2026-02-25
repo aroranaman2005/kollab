@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
+import { emitMessagesChanged } from "@/lib/socket-server";
 
 const BATCH_SIZE = 20;
 
@@ -124,6 +125,13 @@ export async function POST(req: NextRequest) {
       conversationId: conversationId ?? null,
       parentMessageId: parentMessageId ?? null,
     },
+  });
+
+  emitMessagesChanged({
+    workspaceId,
+    channelId: channelId ?? null,
+    conversationId: conversationId ?? null,
+    parentMessageId: parentMessageId ?? null,
   });
 
   return NextResponse.json(message, { status: 201 });
