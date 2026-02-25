@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
+import { emitMessagesChanged } from "@/lib/socket-server";
 
 // POST /api/reactions - toggle a reaction on a message
 // body: { messageId, value }
@@ -28,11 +29,27 @@ export async function POST(req: NextRequest) {
 
   if (existing) {
     await prisma.reaction.delete({ where: { id: existing.id } });
+
+    emitMessagesChanged({
+      workspaceId: message.workspaceId,
+      channelId: message.channelId,
+      conversationId: message.conversationId,
+      parentMessageId: message.parentMessageId,
+    });
+
     return NextResponse.json({ toggled: "removed" });
   } else {
     const reaction = await prisma.reaction.create({
       data: { value, messageId, memberId: member.id, workspaceId: message.workspaceId },
     });
+
+    emitMessagesChanged({
+      workspaceId: message.workspaceId,
+      channelId: message.channelId,
+      conversationId: message.conversationId,
+      parentMessageId: message.parentMessageId,
+    });
+
     return NextResponse.json(reaction, { status: 201 });
   }
 }

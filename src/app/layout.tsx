@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import { ConvexClientProvider } from "@/components/convex-client-provider";
 import { Modals } from "@/components/Modals";
 import ReactQueryProvider from "@/components/react-query-provider";
+import { SocketListener } from "@/components/socket-listener";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 
@@ -34,6 +35,7 @@ export default function RootLayout({
       >
         <ConvexClientProvider>
           <ReactQueryProvider>
+            <SocketListener />
             <Toaster />
             <Modals />
             {children}

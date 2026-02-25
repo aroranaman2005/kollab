@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
+import { emitMessagesChanged } from "@/lib/socket-server";
 
 // GET /api/messages/[id]
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
@@ -38,6 +39,14 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     where: { id: params.id },
     data: { body, updatedAt: new Date() },
   });
+
+  emitMessagesChanged({
+    workspaceId: message.workspaceId,
+    channelId: message.channelId,
+    conversationId: message.conversationId,
+    parentMessageId: message.parentMessageId,
+  });
+
   return NextResponse.json(updated);
 }
 
@@ -55,5 +64,13 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
   await prisma.message.delete({ where: { id: params.id } });
+
+  emitMessagesChanged({
+    workspaceId: message.workspaceId,
+    channelId: message.channelId,
+    conversationId: message.conversationId,
+    parentMessageId: message.parentMessageId,
+  });
+
   return NextResponse.json({ id: params.id });
 }
